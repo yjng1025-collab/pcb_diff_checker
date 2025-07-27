@@ -1,7 +1,7 @@
 fastapi
 uvicorn
-gunicorn
-opencv-python
+pillow
+opencv-python-headless
+numpy
 scikit-image
 python-multipart
-pillow
