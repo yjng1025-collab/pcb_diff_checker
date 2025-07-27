@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PCB Diff Checker</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input[type="file"] { margin: 10px 0; }
+    #result { margin-top: 20px; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h2>PCB Diff Checker</h2>
+  <form id="compareForm">
+    <label>Standard Image:</label><br>
+    <input type="file" id="standard" name="standard" accept="image/*" required><br><br>
+    
+    <label>Student Image:</label><br>
+    <input type="file" id="student" name="student" accept="image/*" required><br><br>
+
+    <button type="submit">Compare</button>
+  </form>
+
+<div id="result"></div>
+<img id="marked" style="max-width: 100%; margin-top: 20px;" />
+
+<script>
+  const form = document.getElementById('compareForm');
+  const resultDiv = document.getElementById('result');
+  const markedImg = document.getElementById('marked');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const standard = document.getElementById('standard').files[0];
+    const student = document.getElementById('student').files[0];
+    const formData = new FormData();
+    formData.append('standard', standard);
+    formData.append('student', student);
+
+    try {
+      const res = await fetch('/compare', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) throw new Error('Server error');
+
+      const data = await res.json();
+      resultDiv.innerHTML = `
+        <h3>Comparison Result:</h3>
+        <p><strong>Similarity:</strong> ${data.similarity.toFixed(4)}</p>
+        <p><strong>Issues Found:</strong> ${data.issues_count}</p>
+        <pre>${JSON.stringify(data.difference_boxes, null, 2)}</pre>
+      `;
+      markedImg.src = data.marked_image;
+
+    } catch (err) {
+      resultDiv.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+      markedImg.src = '';
+    }
+  });
+</script>
+</body>
+</html>
