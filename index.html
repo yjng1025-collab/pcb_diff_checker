@@ -26,6 +26,7 @@
 <img id="marked" style="max-width: 100%; margin-top: 20px;" />
 
 <script>
+document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById('compareForm');
   const resultDiv = document.getElementById('result');
   const markedImg = document.getElementById('marked');
@@ -61,6 +62,8 @@
       markedImg.src = '';
     }
   });
+});
 </script>
+
 </body>
 </html>
