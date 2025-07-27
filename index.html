@@ -4,10 +4,35 @@
   <meta charset="UTF-8">
   <title>PCB Diff Checker</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    input[type="file"] { margin: 10px 0; }
-    #result { margin-top: 20px; }
-    pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f9f9f9;
+    }
+    h2 {
+      color: #333;
+    }
+    input[type="file"], button {
+      margin: 10px 0;
+      font-size: 1rem;
+    }
+    button {
+      padding: 10px 20px;
+    }
+    #result {
+      margin-top: 30px;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    #marked {
+      max-width: 100%;
+      margin-top: 20px;
+      border: 1px solid #ccc;
+    }
   </style>
 </head>
 <body>
@@ -15,55 +40,73 @@
   <form id="compareForm">
     <label>Standard Image:</label><br>
     <input type="file" id="standard" name="standard" accept="image/*" required><br><br>
-    
+
     <label>Student Image:</label><br>
     <input type="file" id="student" name="student" accept="image/*" required><br><br>
 
-    <button type="submit">Compare</button>
+    <button type="submit" id="submitBtn">🔍 Compare</button>
   </form>
 
-<div id="result"></div>
-<img id="marked" style="max-width: 100%; margin-top: 20px;" />
+  <div id="result"></div>
+  <img id="marked" />
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const form = document.getElementById('compareForm');
-  const resultDiv = document.getElementById('result');
-  const markedImg = document.getElementById('marked');
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById('compareForm');
+      const resultDiv = document.getElementById('result');
+      const markedImg = document.getElementById('marked');
+      const submitBtn = document.getElementById('submitBtn');
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-    const standard = document.getElementById('standard').files[0];
-    const student = document.getElementById('student').files[0];
-    const formData = new FormData();
-    formData.append('standard', standard);
-    formData.append('student', student);
+        const standard = document.getElementById('standard').files[0];
+        const student = document.getElementById('student').files[0];
 
-    try {
-      const res = await fetch('/compare', {
-        method: 'POST',
-        body: formData
+        if (!standard || !student) {
+          alert("Please upload both images.");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('standard', standard);
+        formData.append('student', student);
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "⏳ Comparing...";
+
+        resultDiv.innerHTML = "";
+        markedImg.src = "";
+
+        try {
+          const res = await fetch('/compare', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || "Server error");
+          }
+
+          const data = await res.json();
+
+          resultDiv.innerHTML = `
+            <h3>Comparison Result</h3>
+            <p><strong>Similarity:</strong> ${data.similarity.toFixed(4)}</p>
+            <p><strong>Issues Found:</strong> ${data.issues_count}</p>
+            <pre>${JSON.stringify(data.difference_boxes, null, 2)}</pre>
+          `;
+          markedImg.src = data.marked_image;
+
+        } catch (err) {
+          resultDiv.innerHTML = `<p style="color:red;"><strong>Error:</strong> ${err.message}</p>`;
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "🔍 Compare";
+        }
       });
-
-      if (!res.ok) throw new Error('Server error');
-
-      const data = await res.json();
-      resultDiv.innerHTML = `
-        <h3>Comparison Result:</h3>
-        <p><strong>Similarity:</strong> ${data.similarity.toFixed(4)}</p>
-        <p><strong>Issues Found:</strong> ${data.issues_count}</p>
-        <pre>${JSON.stringify(data.difference_boxes, null, 2)}</pre>
-      `;
-      markedImg.src = data.marked_image;
-
-    } catch (err) {
-      resultDiv.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
-      markedImg.src = '';
-    }
-  });
-});
-</script>
-
+    });
+  </script>
 </body>
 </html>
