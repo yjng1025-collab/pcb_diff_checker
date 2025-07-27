@@ -43,3 +43,7 @@ async def compare_images(standard: UploadFile = File(...), student: UploadFile =
         "issues_count": len(boxes),
         "difference_boxes": boxes[:50]  # 最多返回前 50 个
     }
+
+@app.get("/")
+def root():
+    return {"message": "PCB Diff Checker is running!"}
