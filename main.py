@@ -7,6 +7,7 @@ import io
 from skimage.metrics import structural_similarity as compare_ssim
 import base64
 import os
+import traceback  # ✅ 加入 traceback
 
 app = FastAPI()
 
@@ -15,38 +16,49 @@ def read_image(uploaded_bytes):
 
 @app.post("/compare")
 async def compare_images(standard: UploadFile = File(...), student: UploadFile = File(...)):
-    std_img = read_image(await standard.read())
-    stu_img = read_image(await student.read())
+    try:
+        std_img = read_image(await standard.read())
+        stu_img = read_image(await student.read())
 
-    std_gray = cv2.cvtColor(std_img, cv2.COLOR_BGR2GRAY)
-    stu_gray = cv2.cvtColor(stu_img, cv2.COLOR_BGR2GRAY)
+        std_gray = cv2.cvtColor(std_img, cv2.COLOR_BGR2GRAY)
+        stu_gray = cv2.cvtColor(stu_img, cv2.COLOR_BGR2GRAY)
 
-    if std_gray.shape != stu_gray.shape:
-        stu_gray = cv2.resize(stu_gray, (std_gray.shape[1], std_gray.shape[0]))
-        stu_img = cv2.resize(stu_img, (std_img.shape[1], std_img.shape[0]))
+        if std_gray.shape != stu_gray.shape:
+            stu_gray = cv2.resize(stu_gray, (std_gray.shape[1], std_gray.shape[0]))
+            stu_img = cv2.resize(stu_img, (std_img.shape[1], std_img.shape[0]))
 
-    score, diff = compare_ssim(std_gray, stu_gray, full=True)
-    diff = (diff * 255).astype("uint8")
+        score, diff = compare_ssim(std_gray, stu_gray, full=True)
+        diff = (diff * 255).astype("uint8")
 
-    thresh = cv2.threshold(diff, 200, 255, cv2.THRESH_BINARY_INV)[1]
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        thresh = cv2.threshold(diff, 200, 255, cv2.THRESH_BINARY_INV)[1]
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    boxes = []
-    for c in contours:
-        x, y, w, h = cv2.boundingRect(c)
-        if w >= 20 and h >= 20:
-            boxes.append({"x": int(x), "y": int(y), "w": int(w), "h": int(h)})
-            cv2.rectangle(stu_img, (x, y), (x + w, y + h), (0, 0, 255), 2)
+        boxes = []
+        for c in contours:
+            x, y, w, h = cv2.boundingRect(c)
+            if w >= 20 and h >= 20:
+                boxes.append({"x": int(x), "y": int(y), "w": int(w), "h": int(h)})
+                cv2.rectangle(stu_img, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
-    _, img_encoded = cv2.imencode('.png', stu_img)
-    img_base64 = base64.b64encode(img_encoded).decode('utf-8')
+        _, img_encoded = cv2.imencode('.png', stu_img)
+        img_base64 = base64.b64encode(img_encoded).decode('utf-8')
 
-    return JSONResponse(content={
-        "similarity": float(score),
-        "issues_count": len(boxes),
-        "difference_boxes": boxes[:50],
-        "marked_image": f"data:image/png;base64,{img_base64}"
-    })
+        return JSONResponse(content={
+            "similarity": float(score),
+            "issues_count": len(boxes),
+            "difference_boxes": boxes[:50],
+            "marked_image": f"data:image/png;base64,{img_base64}"
+        })
+
+    except Exception as e:
+        # ✅ 打印错误堆栈到控制台
+        print("=== ERROR in /compare ===")
+        traceback.print_exc()
+
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Internal server error: {str(e)}"}
+        )
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
